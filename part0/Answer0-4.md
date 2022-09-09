@@ -12,9 +12,6 @@ note over browser:
 browser executing main.js to request data
 end note
 browser-->server: https://studies.cs.helsinki.fi/exampleapp/data.json
-server-->browser: [{"content":"hello request","date":"2022-09-08T18:15:49.432Z"},...]
-
-browser->server: HTTP GET https://studies.cs.helsinki.fi/exampleapp/data.json
 server-->browser: [...{"content":"test","date":"2022-09-09T03:12:40.920Z"}]
 
 note over browser:
