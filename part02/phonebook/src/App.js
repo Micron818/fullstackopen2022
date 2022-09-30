@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import Notification from "./components/Notification";
+import personService from "./services/person";
 
 const Filter = ({ setFilterName }) => {
   const handleFilter = (event) => {
@@ -14,29 +15,70 @@ const Filter = ({ setFilterName }) => {
   );
 };
 
-const Person = ({ person }) => {
-  return (
-    <li>
-      {person.name} {person.number}
-    </li>
-  );
-};
-
-const PersonForm = ({ persons, setPersons }) => {
+const PersonForm = ({ persons, setPersons, setMessage }) => {
   const [newPerson, setNewPerson] = useState({ name: "", number: "" });
   const addPhone = (event) => {
     event.preventDefault();
-    if (persons.some((person) => person.name === newPerson.name)) {
-      alert(`${newPerson.name} is already added to phonebook`);
+
+    const person = persons.find((person) => person.name === newPerson.name);
+    if (!person) {
+      //create new id
+      const id = Math.max(...persons.map((person) => person.id), 0) + 1;
+      personService
+        .create({
+          ...newPerson,
+          id: id,
+        })
+        .then((returnPerson) => {
+          setPersons([...persons, returnPerson]);
+          setNewPerson({ name: "", number: "" });
+          setMessage({
+            type: "success",
+            content: `Added ${returnPerson.name}`,
+          });
+          setTimeout(() => setMessage(null), 5000);
+        })
+        .catch((reason) => {
+          setMessage({
+            type: "error",
+            content: `call create service exception: ${reason}`,
+          });
+          setTimeout(() => setMessage(null), 5000);
+        });
       return;
     }
-    const newPersons = persons.concat({
-      name: newPerson.name,
-      number: newPerson.number,
-      id: persons.length + 1,
-    });
-    setPersons(newPersons);
-    setNewPerson({ name: "", number: "" });
+
+    if (
+      window.confirm(
+        `${newPerson.name} is already added to phonebook,replace the old number with a new one?`
+      )
+    ) {
+      //update
+      personService
+        .update(person.id, {
+          ...person,
+          number: newPerson.number,
+        })
+        .then((returnPerson) => {
+          setPersons(
+            persons.map((person) =>
+              person.name !== returnPerson.name ? person : returnPerson
+            )
+          );
+          setMessage({
+            type: "success",
+            content: `Updated ${person.name} number: ${person.number} to ${returnPerson.number}`,
+          });
+          setTimeout(() => setMessage(null), 5000);
+        })
+        .catch((reason) => {
+          setMessage({
+            type: "error",
+            content: `call update service exception: ${reason}`,
+          });
+          setTimeout(() => setMessage(null), 5000);
+        });
+    }
   };
 
   return (
@@ -67,38 +109,74 @@ const PersonForm = ({ persons, setPersons }) => {
   );
 };
 
-const Persons = ({ persons, filterName }) => {
-  const showPersons = persons.filter((person) =>
+const Persons = ({ persons, setPersons, filterName, setMessage }) => {
+  const filteredPersons = persons.filter((person) =>
     person.name.toUpperCase().includes(filterName.toUpperCase())
   );
 
+  const handleDelete = (person) => {
+    if (window.confirm(`Delete ${person.name} ?`)) {
+      //delete
+      personService
+        .drop(person.id)
+        .then(() => {
+          setPersons(persons.filter((value) => value.id !== person.id));
+          setMessage({ type: "success", content: `Deleted ${person.name}!` });
+          setTimeout(() => setMessage(null), 5000);
+        })
+        .catch((reason) => {
+          setMessage({
+            type: "error",
+            content: `call Delete service exception: ${reason}`,
+          });
+          setTimeout(() => setMessage(null), 5000);
+        });
+    }
+  };
+
   return (
-    <ul style={{ paddingLeft: 0 }}>
-      {showPersons.map((person) => (
-        <Person key={person.id} person={person} />
+    <>
+      {filteredPersons.map((person) => (
+        <div key={person.id}>
+          {person.name} {person.number}{" "}
+          <button onClick={() => handleDelete(person)}>delete</button>
+        </div>
       ))}
-    </ul>
+    </>
   );
 };
 
 const App = () => {
   const [persons, setPersons] = useState([]);
   const [filterName, setFilterName] = useState("");
+  const [message, setMessage] = useState();
 
   useEffect(() => {
-    axios.get("http://localhost:3001/persons").then((response) => {
-      setPersons(response.data);
+    personService.getAll().then((persons) => {
+      setPersons(persons);
     });
   }, []);
 
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification message={message} />
       <Filter setFilterName={setFilterName} />
+
       <h2>add a new</h2>
-      <PersonForm persons={persons} setPersons={setPersons} />
+      <PersonForm
+        persons={persons}
+        setPersons={setPersons}
+        setMessage={setMessage}
+      />
+
       <h2>Numbers</h2>
-      <Persons persons={persons} filterName={filterName} />
+      <Persons
+        persons={persons}
+        setPersons={setPersons}
+        filterName={filterName}
+        setMessage={setMessage}
+      />
     </div>
   );
 };
