@@ -41,7 +41,9 @@ const PersonForm = ({ persons, setPersons, setMessage }) => {
         .catch((reason) => {
           setMessage({
             type: "error",
-            content: `call create service exception: ${reason}`,
+            content: `call create service exception: ${
+              reason.response.data.error || reason
+            }`,
           });
           setTimeout(() => setMessage(null), 5000);
         });
